@@ -1,5 +1,9 @@
 package push
 
+type TelegramParam struct {
+    BotToken string `json:"bot_token"`
+    ChatID   string `json:"chat_id"`
+}
 // 钉钉feedCard类型推送参数
 type DingFeedCardParam struct {
 	MsgType  string   `json:"msgtype"`
