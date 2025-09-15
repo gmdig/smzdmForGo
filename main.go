@@ -21,7 +21,7 @@ var userDbPath = "data/users.db"
 func main() {
 	go func() {
         if conf.TelegramBotToken != "" && conf.TelegramChatID != "" {
-            PushTextWithDingDing("✅ smzdmForGo 已启动", conf)
+            push.PushTextWithDingDing("✅ smzdmForGo 已启动", conf)
         } else {
             // 若仍保留 dingdingToken，则也可推送到钉钉，或者记录日志
             // log.Println("未配置 Telegram，跳过启动提醒")
