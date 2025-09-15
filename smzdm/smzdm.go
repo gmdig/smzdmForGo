@@ -205,10 +205,10 @@ func removeByFilterRules(good Product, pushedMap map[string]interface{}) bool {
 func satisfy(good Product, satisfyGoodsList []Product) bool {
 
 	// 文章名称,爆料人包含关键词 直接添加
-	// if strings.Contains(good.ArticleTitle, globalConf.KeyWord) || strings.Contains(good.Referral, globalConf.KeyWord) {
-	// 	// fmt.Printf("appear satisfy good: %#v", good)
-	// 	return true
-	// }
+	 if strings.Contains(good.ArticleTitle, globalConf.KeyWord) || strings.Contains(good.Referral, globalConf.KeyWord) {
+	 	 fmt.Printf("appear satisfy good: %#v", good)
+	 	return true
+	 }
 
 	// 评论 和 值率 转int
 	articleComment, err1 := strconv.Atoi(good.ArticleComment)
