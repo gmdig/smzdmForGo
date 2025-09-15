@@ -26,6 +26,8 @@ type Config struct {
 	KeyWords      []string `yaml:"keyWords"`
 	DingdingToken string   `yaml:"dingdingToken"`
 	Cron          string   `yaml:"cron"`
+	TelegramBotToken string `yaml:"telegramBotToken"`
+    TelegramChatID   string `yaml:"telegramChatId"`
 }
 
 // 签到信息
