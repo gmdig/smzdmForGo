@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
 
 	"ggball.com/smzdm/file"
 )
@@ -246,10 +247,21 @@ func filterMyselfProduct(satisfyGoodsList []Product) []Product {
 
 	for _, value := range satisfyGoodsList {
 		for _, word := range globalConf.KeyWords {
-			if strings.Contains(value.ArticleTitle, word) {
-				fmt.Printf("appear myself satisfy good: %#v", value)
-				satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
-			}
+			//if strings.Contains(value.ArticleTitle, word) {
+			//	fmt.Printf("appear myself satisfy good: %#v", value)
+			//	satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
+			//}
+			// 检查正则表达式匹配是否成功
+matched, err := regexp.MatchString(word, value.ArticleTitle)
+if err != nil {
+    // 错误处理，例如记录日志
+    fmt.Printf("正则表达式匹配错误: %v\n", err)
+    continue
+}
+if matched {
+    fmt.Printf("appear myself satisfy good: %#v", value)
+    satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
+}
 		}
 	}
 	return satisfyGoodsListBySelf
