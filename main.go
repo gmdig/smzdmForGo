@@ -71,10 +71,11 @@ func requestSmzdm() {
 		return
 	}
 	// 推送商品
-	push.PushProWithDingDing(satisfyGoodsList, conf)
+	//push.PushProWithDingDing(satisfyGoodsList, conf)
 	// 推送自己关注的商品
-	atMobiles := []string{"13217913287"}
-	push.PushTextWithDingDingWIthMoblie(satisfyGoodsMyselfList, conf, atMobiles)
+	//atMobiles := []string{"13217913287"}
+	//push.PushTextWithDingDingWIthMoblie(satisfyGoodsMyselfList, conf, atMobiles)
+      push.PushProWithDingDing(satisfyGoodsMyselfList, conf)
 	time.Sleep(1 * time.Second)
 }
 
