@@ -24,3 +24,6 @@ dingdingToken: "9e4044952fe5c599afed3815ccaa387c650fd07bda96512648acfceb1b202ada
 
 # 签到时间(默认早上8:30)
 cron: "0 10 10 ? * *"
+
+telegramBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"  # 从 @BotFather 获取
+telegramChatId: "-1001234567890"  # 个人 chat id 或 群 id（群通常为 -100...）
