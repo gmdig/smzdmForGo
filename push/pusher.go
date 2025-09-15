@@ -10,11 +10,6 @@ import (
 	"ggball.com/smzdm/smzdm"
 )
 
-// Telegram 推送参数
-type TelegramParam struct {
-	BotToken string
-	ChatID   string
-}
 
 // 内部方法：发送消息到 Telegram
 func sendTelegramMessage(conf file.Config, text string) error {
