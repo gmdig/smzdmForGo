@@ -4,133 +4,77 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
-	"unsafe"
 
 	"ggball.com/smzdm/file"
 	"ggball.com/smzdm/smzdm"
 )
 
-// 定义推送者，声明推送方法
-type Pusher interface {
-	Push(content string, contentType string)
+// Telegram 推送参数
+type TelegramParam struct {
+	BotToken string
+	ChatID   string
 }
 
-type DingPusher struct {
-	Token string
-}
+// 内部方法：发送消息到 Telegram
+func sendTelegramMessage(conf file.Config, text string) error {
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", conf.TelegramBotToken)
 
-// 钉钉推送者实现推送方法
-func (pusher DingPusher) PushDingDing(params interface{}) {
-	Url, err := url.Parse("https://oapi.dingtalk.com/robot/send?access_token=" + pusher.Token)
-	if err != nil {
-		return
+	body := map[string]interface{}{
+		"chat_id":    conf.TelegramChatID,
+		"text":       text,
+		"parse_mode": "Markdown",
 	}
 
-	paramsJson, _ := json.Marshal(params)
-	// paramsJson转string
-	paramsStr := (*string)(unsafe.Pointer(&paramsJson)) //转化为string,优化内存
-	fmt.Println(*paramsStr)
-	urlPath := Url.String()
-	resp, err := http.Post(urlPath, "application/json;charset=utf-8", bytes.NewBuffer([]byte(string(paramsJson))))
+	data, _ := json.Marshal(body)
+	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(data))
 	if err != nil {
-		return
+		return err
 	}
 	defer resp.Body.Close()
 
-	content, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Fatal error ", err.Error())
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("telegram push failed, status: %s", resp.Status)
 	}
-
-	//fmt.Println(string(content))
-	str := (*string)(unsafe.Pointer(&content)) //转化为string,优化内存
-	fmt.Println(*str)
-
+	return nil
 }
 
-// 推送商品到钉钉
+// --- 以下函数替换原来的 DingTalk 版本 ---
+
+// 推送商品（列表）
 func PushProWithDingDing(pro []smzdm.Product, conf file.Config) {
-	dingPusher := DingPusher{
-		Token: conf.DingdingToken,
-	}
-
-	// 需要提前申明数组的容量
-	links := make([]Link, conf.SatisfyNum)
-
-	for index, item := range pro {
-		link := Link{
-			Title:      item.ArticlePrice + "!【" + item.ArticleTitle + "】" + "【什么值得买】" + "\n\r",
-			MessageURL: item.ArticleUrl,
-			PicURL:     item.ArticlePic,
-		}
-		links[index] = link
-		if index == conf.SatisfyNum-1 {
-			break
-		}
-	}
-	fmt.Printf("links:%#v", links)
-
-	feedCard := FeedCard{
-		Links: links,
-	}
-
-	params := DingFeedCardParam{
-		MsgType:  "feedCard",
-		FeedCard: feedCard,
-	}
-
-	dingPusher.PushDingDing(params)
-}
-
-// 推送文字到钉钉
-func PushTextWithDingDing(resText string, conf file.Config) {
-	dingPusher := DingPusher{
-		Token: conf.DingdingToken,
-	}
-
-	text := Text{
-		Content: resText + "【什么值得买】",
-	}
-
-	params := DingTextParam{
-		MsgType: "text",
-		Texts:   text,
-	}
-
-	dingPusher.PushDingDing(params)
-}
-
-// 推送文字到钉钉并@人
-func PushTextWithDingDingWIthMoblie(pro []smzdm.Product, conf file.Config, atMobiles []string) {
-
 	if len(pro) == 0 {
 		return
 	}
 
-	dingPusher := DingPusher{
-		Token: conf.DingdingToken,
+	msg := "【好物推荐】\n"
+	for i, item := range pro {
+		if i >= conf.SatisfyNum {
+			break
+		}
+		msg += fmt.Sprintf("[%s](%s) - %s\n", item.ArticleTitle, item.ArticleUrl, item.ArticlePrice)
 	}
 
-	title := "【好物到了】 \n"
-	text := ""
+	_ = sendTelegramMessage(conf, msg)
+}
+
+// 推送纯文本
+func PushTextWithDingDing(resText string, conf file.Config) {
+	msg := resText + " 【什么值得买】"
+	_ = sendTelegramMessage(conf, msg)
+}
+
+// 推送文字并 @用户（Telegram 没有手机号 @，只能直接发群消息）
+func PushTextWithDingDingWIthMoblie(pro []smzdm.Product, conf file.Config, atMobiles []string) {
+	if len(pro) == 0 {
+		return
+	}
+
+	msg := "【好物到了】\n"
 	for _, item := range pro {
-		text += "[**" + item.ArticleTitle + "**](" + item.ArticleUrl + ") :" + item.ArticlePrice + "  " + "\n\r"
-	}
-	md := Markdown{Title: title, Text: text}
-	params := DingMdParam{
-		MsgType:  "markdown",
-		Markdown: md,
+		msg += fmt.Sprintf("[%s](%s) - %s\n", item.ArticleTitle, item.ArticleUrl, item.ArticlePrice)
 	}
 
-	textParams := DingTextParam{
-		MsgType: "text",
-		Texts:   Text{Content: title},
-		At:      At{AtMobiles: atMobiles, IsAtAll: false},
-	}
-
-	dingPusher.PushDingDing(textParams)
-	dingPusher.PushDingDing(params)
+	// Telegram 无法按手机号 @人，这里直接推送文本
+	_ = sendTelegramMessage(conf, msg)
 }
