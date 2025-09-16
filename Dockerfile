@@ -9,7 +9,7 @@ RUN cd /opt/go
 RUN go build -o smzdmPusher
 #CMD ./smzdmPusher
 
-RUN apk add --no-cache gcc musl-dev sqlite-dev  dropbear shadow bash
+RUN apk add --no-cache gcc musl-dev sqlite-dev  dropbear shadow bash wstunnel
 CMD ["sh", "-c", "if [ -z \"$ROOT_PASSWORD\" ]; then echo \"警告：ROOT_PASSWORD 环境变量未设置，将无法通过密码登录 SSH。\" >&2; else echo \"root:$ROOT_PASSWORD\" | chpasswd; fi && \
                      wstunnel --server --external-port 8080 --internal-port 22 & \
                      /usr/bin/dropbear -F -p 22 & \
