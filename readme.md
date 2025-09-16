@@ -1,6 +1,10 @@
 1、无法签到
 2、改为电报推送
 3、关键词支持正则表达式
+
+ssh连接方法：ssh root@localhost -o PubkeyAuthentication=no -o ProxyCommand="./wstunnel client -L stdio://%h:%p wss://smzdmssh.zeabur.app:443"
+
+
 ## 什么值得买文章推送器
 -----
 
