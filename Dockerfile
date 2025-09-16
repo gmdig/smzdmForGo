@@ -15,8 +15,8 @@ RUN wget https://github.com/erebe/wstunnel/releases/download/v10.4.4/wstunnel_10
     chmod +x ./wstunnel
 
 CMD ["sh", "-c", "if [ -z \"$ROOT_PASSWORD\" ]; then echo \"警告：ROOT_PASSWORD 环境变量未设置，将无法通过密码登录 SSH。\" >&2; else echo \"root:$ROOT_PASSWORD\" | chpasswd; fi && \
-                     ./wstunnel --server --external-port 8080 --internal-port 22 & \
-                     /usr/bin/dropbear -F -p 22 & \
+                     .wstunnel server --port 8080 ws://0.0.0.0:22 & \
+                     dropbear -F -p 22 & \
                      ./smzdmPusher"]
 RUN mkdir -p /data
 VOLUME /data
