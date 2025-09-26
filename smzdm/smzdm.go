@@ -45,9 +45,6 @@ var globalConf = file.Config{}
 var pushedPath = "./pushed.json"
 
 // 获取商品
-//
-//	@return []product 符合条件的商品集合
-//	@return []product 符合自己条件的商品集合
 func GetSatisfiedGoods(conf file.Config) ([]Product, []Product) {
 	globalConf = conf
 	fmt.Println("开始爬取符合条件商品。。")
@@ -58,23 +55,13 @@ func GetSatisfiedGoods(conf file.Config) ([]Product, []Product) {
 	// 符合条件的商品集合
 	var satisfyGoodsList []Product
 
-	// 符合自己条件的商品集合
-	var satisfyGoodsListBySelf []Product
-
 	page := 0
 	for {
+		productList := GetGoods(page, "").Data.Rows
 
-		var productList = []Product{}
-		// Get the good list
-		productList = GetGoods(page, "").Data.Rows
-
-		// add satisfy good
 		if len(productList) > 0 {
-			rows := productList
-			for i := 0; i < len(rows); i++ {
-				good := rows[i]
-
-				// 商品 包含 “k” 转换数字 默认给1000
+			for _, good := range productList {
+				// 评论数包含“K”时，默认给 1000
 				if strings.Contains(strings.ToLower(good.ArticleComment), "k") {
 					good.ArticleComment = "1000"
 				}
@@ -86,45 +73,36 @@ func GetSatisfiedGoods(conf file.Config) ([]Product, []Product) {
 				if satisfy(good, satisfyGoodsList) {
 					satisfyGoodsList = append(satisfyGoodsList, good)
 				}
-
 			}
 		}
 
-		// 页数+1
 		page++
-		// 延时2s
 		time.Sleep(time.Duration(2) * time.Second)
 
-		// 判断是否退出
 		if shouldStop(len(satisfyGoodsList), page) {
 			fmt.Println("退出")
 			break
 		}
-
 	}
 
-	// 根据评论数排序
+	// 评论数排序
 	sort.SliceStable(satisfyGoodsList, func(a, b int) bool {
 		return strings.Compare(satisfyGoodsList[a].ArticleComment, satisfyGoodsList[b].ArticleComment) > 0
 	})
 
 	fmt.Println("结束爬取符合条件商品。。")
 
-	//过滤出自己的商品
-	satisfyGoodsListBySelf = filterMyselfProduct(satisfyGoodsList)
+	// 自己的商品
+	satisfyGoodsListBySelf := filterMyselfProduct(satisfyGoodsList)
 
-	// 保存推送商品，去重使用
+	// 保存推送商品
 	savePushed(pushedMap, pushedPath, satisfyGoodsList)
 
 	return satisfyGoodsList, satisfyGoodsListBySelf
 }
 
-// GetGoods 获取商品集合
-//
-//	@param offset
-//	@return result 商品集合
+// 获取商品集合
 func GetGoods(page int, keword string) result {
-
 	var res result
 
 	params := url.Values{}
@@ -133,7 +111,6 @@ func GetGoods(page int, keword string) result {
 		return res
 	}
 	params.Set("keyword", keword)
-	// score 值率排序  time 时间排序
 	params.Set("order", "time")
 	params.Set("type", "good_price")
 	params.Set("offset", strconv.Itoa(page*100))
@@ -148,53 +125,55 @@ func GetGoods(page int, keword string) result {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	// fmt.Println(string(body))
 
 	_ = json.Unmarshal(body, &res)
-	// fmt.Printf("%#v", res)
 	return res
-
 }
 
 // 根据条件 判断是否应该停止爬取
 func shouldStop(length int, page int) bool {
 	fmt.Println("length:" + strconv.Itoa(length) + "\n\r page:" + strconv.Itoa(page))
-	//  判断数量是否超过【符合商品个数】 且 page > 20
 	return length > globalConf.SatisfyNum || page > 100
-
 }
 
 // 根据过滤规则，去除商品
 func removeByFilterRules(good Product, pushedMap map[string]interface{}) bool {
 	var noNeed = false
-	// 1. 文章名称 包含过滤字符 一概不要
-	for j := 0; j < len(globalConf.FilterWords); j++ {
-		if strings.Contains(good.ArticleTitle, globalConf.FilterWords[j]) || strings.Contains(good.ArticlePrice, globalConf.FilterWords[j]) {
+
+	// 1. 标题/价格包含过滤词
+	for _, word := range globalConf.FilterWords {
+		var pattern string
+		if strings.HasPrefix(word, "re:") {
+			pattern = "(?i)" + word[3:]
+		} else {
+			pattern = "(?i)" + regexp.QuoteMeta(word)
+		}
+
+		if matched, _ := regexp.MatchString(pattern, good.ArticleTitle); matched {
+			fmt.Printf("过滤掉(标题): %s by %s\n", good.ArticleTitle, word)
+			noNeed = true
+			break
+		}
+		if matched, _ := regexp.MatchString(pattern, good.ArticlePrice); matched {
+			fmt.Printf("过滤掉(价格): %s by %s\n", good.ArticlePrice, word)
 			noNeed = true
 			break
 		}
 	}
 
-	// 2. 根据已推送文章id map 判断是否需要去除，如果已经推送过的，则去除
-	_, b := pushedMap[good.ArticleId]
-	if b {
-		// fmt.Println(good.ArticleTitle + "文章已存在,不予添加")
+	// 2. 已推送过
+	if _, exists := pushedMap[good.ArticleId]; exists {
 		noNeed = true
 	}
 
-	// 3. 文章时间小于昨天 去除
-	// var timeLayoutStr = "2006-01-02 15:04:05" //go中的时间格式化必须是这个时间
+	// 3. 时间小于前天
 	nTime := time.Now()
-	// 前天
 	beforeYesDate := nTime.AddDate(0, 0, -2)
 	dateInt64, err1 := strconv.ParseInt(good.ArticleDate, 10, 64)
-
 	if err1 != nil {
 		panic(err1)
 	}
-
 	arDate := time.Unix(dateInt64, 0)
-	// fmt.Println("文章时间：" + arDate.Format(timeLayoutStr) + "昨天时间：" + beforeYesDate.Format(timeLayoutStr))
 	if arDate.Before(beforeYesDate) {
 		noNeed = true
 	}
@@ -204,36 +183,24 @@ func removeByFilterRules(good Product, pushedMap map[string]interface{}) bool {
 
 // 根据规则判断符合规则的商品
 func satisfy(good Product, satisfyGoodsList []Product) bool {
-
-	// 文章名称,爆料人包含关键词 直接添加
-	// if strings.Contains(good.ArticleTitle, globalConf.KeyWord) || strings.Contains(good.Referral, globalConf.KeyWord) {
-	// 	 fmt.Printf("appear satisfy good: %#v", good)
-	// 	return true
-	// }
-
-	// 评论 和 值率 转int
 	articleComment, err1 := strconv.Atoi(good.ArticleComment)
 	articleWorthy, err2 := strconv.Atoi(good.ArticleWorthy)
 
-	// || err2 != nil
 	if err1 != nil || err2 != nil {
 		fmt.Println("goods:", good)
 		panic(err1)
 	}
 
-	// 评论，值率满足要求 则添加商品
 	if articleComment >= globalConf.LowCommentNum || articleWorthy >= globalConf.LowWorthyNum {
 		fmt.Printf("appear satisfy good: %#v", good)
 		return true
 	}
-
 	return false
 }
 
-// 保存推送商品，去重使用
+// 保存推送商品
 func savePushed(pushedMap map[string]interface{}, pushedPath string, satisfyGoodsList []Product) {
 	tempMap := make(map[string]interface{})
-
 	for index, value := range satisfyGoodsList {
 		tempMap[value.ArticleId] = index
 	}
@@ -242,28 +209,28 @@ func savePushed(pushedMap map[string]interface{}, pushedPath string, satisfyGood
 
 // 过滤自己的商品
 func filterMyselfProduct(satisfyGoodsList []Product) []Product {
-
 	var satisfyGoodsListBySelf []Product
 
 	for _, value := range satisfyGoodsList {
 		for _, word := range globalConf.KeyWords {
-			//if strings.Contains(value.ArticleTitle, word) {
-			//	fmt.Printf("appear myself satisfy good: %#v", value)
-			//	satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
-			//}
-			// 检查正则表达式匹配是否成功
-matched, err := regexp.MatchString(word, value.ArticleTitle)
-if err != nil {
-    // 错误处理，例如记录日志
-    fmt.Printf("正则表达式匹配错误: %v\n", err)
-    continue
-}
-if matched {
-    fmt.Printf("appear myself satisfy good: %#v", value)
-    satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
-}
+			var pattern string
+			if strings.HasPrefix(word, "re:") {
+				pattern = "(?i)" + word[3:]
+			} else {
+				pattern = "(?i)" + regexp.QuoteMeta(word)
+			}
+
+			matched, err := regexp.MatchString(pattern, value.ArticleTitle)
+			if err != nil {
+				fmt.Printf("正则表达式匹配错误: %v (word=%s)\n", err, word)
+				continue
+			}
+			if matched {
+				fmt.Printf("appear myself satisfy good: %#v\n", value)
+				satisfyGoodsListBySelf = append(satisfyGoodsListBySelf, value)
+				break
+			}
 		}
 	}
 	return satisfyGoodsListBySelf
-
 }
